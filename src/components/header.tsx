@@ -1,5 +1,5 @@
-import React from "react";
-import { Box, Text } from "ink";
+import React from 'react';
+import { Box, Text } from 'ink';
 
 interface HeaderProps {
   version: string;
@@ -13,13 +13,15 @@ export function Header({ version, model, provider, cwd, sessionName }: HeaderPro
   return (
     <Box flexDirection="row">
       <Box flexDirection="column">
-        <Text color="cyan">  ██</Text>
+        <Text color="cyan"> ██</Text>
         <Text color="cyan"> ████</Text>
-        <Text color="cyan">██  ██</Text>
+        <Text color="cyan">██ ██</Text>
       </Box>
       <Box flexDirection="column" marginLeft={2} justifyContent="center">
         <Text>
-          <Text color="cyan" bold>Astreus CLI </Text>
+          <Text color="cyan" bold>
+            Astreus CLI{' '}
+          </Text>
           <Text dimColor>v{version}</Text>
           {sessionName && (
             <>

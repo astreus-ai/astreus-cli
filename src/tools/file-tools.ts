@@ -1,5 +1,16 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, rmdirSync, renameSync, copyFileSync } from "fs";
-import { join, dirname, resolve, isAbsolute, basename } from "path";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+  rmdirSync,
+  renameSync,
+  copyFileSync,
+} from 'fs';
+import { join, dirname, resolve, isAbsolute, basename } from 'path';
 
 export interface ToolResult {
   success: boolean;
@@ -44,7 +55,7 @@ export function readFile(path: string): ToolResult {
     if (stat.isDirectory()) {
       return { success: false, error: `Path is a directory: ${path}` };
     }
-    const content = readFileSync(resolvedPath, "utf-8");
+    const content = readFileSync(resolvedPath, 'utf-8');
     return { success: true, data: content };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -59,7 +70,7 @@ export function writeFile(path: string, content: string): ToolResult {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(resolvedPath, content, "utf-8");
+    writeFileSync(resolvedPath, content, 'utf-8');
     const lines = content.split('\n').length;
     return { success: true, data: `Wrote ${resolvedPath} (${lines} lines)` };
   } catch (e: any) {
@@ -74,12 +85,12 @@ export function editFile(path: string, oldContent: string, newContent: string): 
     if (!existsSync(resolvedPath)) {
       return { success: false, error: `File not found: ${path}` };
     }
-    let content = readFileSync(resolvedPath, "utf-8");
+    let content = readFileSync(resolvedPath, 'utf-8');
     if (!content.includes(oldContent)) {
       return { success: false, error: `Content not found in file` };
     }
     content = content.replace(oldContent, newContent);
-    writeFileSync(resolvedPath, content, "utf-8");
+    writeFileSync(resolvedPath, content, 'utf-8');
     return { success: true, data: `Edited ${resolvedPath}` };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -87,7 +98,7 @@ export function editFile(path: string, oldContent: string, newContent: string): 
 }
 
 // List directory contents
-export function listDirectory(path: string = "."): ToolResult {
+export function listDirectory(path: string = '.'): ToolResult {
   try {
     const resolvedPath = resolvePath(path);
     if (!existsSync(resolvedPath)) {
@@ -97,7 +108,7 @@ export function listDirectory(path: string = "."): ToolResult {
     if (!stat.isDirectory()) {
       return { success: false, error: `Path is not a directory: ${path}` };
     }
-    const entries = readdirSync(resolvedPath).filter(e => !e.startsWith('.'));
+    const entries = readdirSync(resolvedPath).filter((e) => !e.startsWith('.'));
 
     // Separate directories and files
     const dirs: string[] = [];
@@ -192,7 +203,7 @@ export function moveFile(source: string, destination: string): ToolResult {
 
     renameSync(resolvedSource, resolvedDest);
     return { success: true, data: `Moved ${source} -> ${destination}` };
-  } catch (e: any) {
+  } catch (_e: any) {
     // If rename fails (cross-device), try copy + delete
     try {
       const resolvedSource = resolvePath(source);
@@ -201,7 +212,10 @@ export function moveFile(source: string, destination: string): ToolResult {
 
       if (stat.isDirectory()) {
         // For directories, we need recursive copy
-        return { success: false, error: `Cannot move directory across devices. Use copy manually.` };
+        return {
+          success: false,
+          error: `Cannot move directory across devices. Use copy manually.`,
+        };
       }
 
       copyFileSync(resolvedSource, resolvedDest);
@@ -214,7 +228,7 @@ export function moveFile(source: string, destination: string): ToolResult {
 }
 
 // Search for files by pattern
-export function searchFiles(pattern: string, dir: string = "."): ToolResult {
+export function searchFiles(pattern: string, dir: string = '.'): ToolResult {
   try {
     const resolvedDir = resolvePath(dir);
     const results: string[] = [];
@@ -225,14 +239,14 @@ export function searchFiles(pattern: string, dir: string = "."): ToolResult {
 
       const entries = readdirSync(currentDir);
       for (const entry of entries) {
-        if (entry.startsWith(".") || entry === "node_modules") continue;
+        if (entry.startsWith('.') || entry === 'node_modules') continue;
 
         const entryPath = join(currentDir, entry);
         try {
           const stat = statSync(entryPath);
 
           if (entry.toLowerCase().includes(pattern.toLowerCase())) {
-            const relativePath = entryPath.replace(resolvedDir, "").replace(/^\//, "");
+            const relativePath = entryPath.replace(resolvedDir, '').replace(/^\//, '');
             results.push(stat.isDirectory() ? relativePath + '/' : relativePath);
           }
 
@@ -246,7 +260,7 @@ export function searchFiles(pattern: string, dir: string = "."): ToolResult {
     }
 
     search(resolvedDir);
-    return { success: true, data: results.length > 0 ? results.join('\n') : "No matches found" };
+    return { success: true, data: results.length > 0 ? results.join('\n') : 'No matches found' };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
@@ -255,22 +269,22 @@ export function searchFiles(pattern: string, dir: string = "."): ToolResult {
 // Execute tool by name
 export function executeTool(name: string, args: Record<string, string>): ToolResult {
   switch (name) {
-    case "read_file":
+    case 'read_file':
       return readFile(args.path);
-    case "write_file":
+    case 'write_file':
       return writeFile(args.path, args.content);
-    case "edit_file":
+    case 'edit_file':
       return editFile(args.path, args.old_content, args.new_content);
-    case "list_directory":
-      return listDirectory(args.path || ".");
-    case "create_directory":
+    case 'list_directory':
+      return listDirectory(args.path || '.');
+    case 'create_directory':
       return createDirectory(args.path);
-    case "delete_file":
+    case 'delete_file':
       return deleteFile(args.path);
-    case "move_file":
+    case 'move_file':
       return moveFile(args.source, args.destination);
-    case "search_files":
-      return searchFiles(args.pattern, args.dir || ".");
+    case 'search_files':
+      return searchFiles(args.pattern, args.dir || '.');
     default:
       return { success: false, error: `Unknown tool: ${name}` };
   }
@@ -278,102 +292,172 @@ export function executeTool(name: string, args: Record<string, string>): ToolRes
 
 // Plugin definition for the Astreus SDK
 export const fileToolsPlugin = {
-  name: "file-tools",
-  version: "1.0.0",
-  description: "File system tools for reading, writing, and managing files",
+  name: 'file-tools',
+  version: '1.0.0',
+  description: 'File system tools for reading, writing, and managing files',
   tools: [
     {
-      name: "read_file",
-      description: "Read the contents of a file",
+      name: 'read_file',
+      description: 'Read the contents of a file',
       parameters: {
-        path: { name: "path", type: "string" as const, description: "Path to the file to read (relative to working directory or absolute)", required: true }
+        path: {
+          name: 'path',
+          type: 'string' as const,
+          description: 'Path to the file to read (relative to working directory or absolute)',
+          required: true,
+        },
       },
       handler: async (params: Record<string, any>) => {
         const result = readFile(params.path as string);
         return { success: result.success, data: result.data, error: result.error };
-      }
+      },
     },
     {
-      name: "write_file",
-      description: "Write content to a file (creates directories if needed)",
+      name: 'write_file',
+      description: 'Write content to a file (creates directories if needed)',
       parameters: {
-        path: { name: "path", type: "string" as const, description: "Path to the file to write (relative to working directory or absolute)", required: true },
-        content: { name: "content", type: "string" as const, description: "Content to write to the file", required: true }
+        path: {
+          name: 'path',
+          type: 'string' as const,
+          description: 'Path to the file to write (relative to working directory or absolute)',
+          required: true,
+        },
+        content: {
+          name: 'content',
+          type: 'string' as const,
+          description: 'Content to write to the file',
+          required: true,
+        },
       },
       handler: async (params: Record<string, any>) => {
         const result = writeFile(params.path as string, params.content as string);
         return { success: result.success, data: result.data, error: result.error };
-      }
+      },
     },
     {
-      name: "edit_file",
-      description: "Edit a file by replacing specific content",
+      name: 'edit_file',
+      description: 'Edit a file by replacing specific content',
       parameters: {
-        path: { name: "path", type: "string" as const, description: "Path to the file to edit (relative to working directory or absolute)", required: true },
-        old_content: { name: "old_content", type: "string" as const, description: "The exact content to replace", required: true },
-        new_content: { name: "new_content", type: "string" as const, description: "The new content to insert", required: true }
+        path: {
+          name: 'path',
+          type: 'string' as const,
+          description: 'Path to the file to edit (relative to working directory or absolute)',
+          required: true,
+        },
+        old_content: {
+          name: 'old_content',
+          type: 'string' as const,
+          description: 'The exact content to replace',
+          required: true,
+        },
+        new_content: {
+          name: 'new_content',
+          type: 'string' as const,
+          description: 'The new content to insert',
+          required: true,
+        },
       },
       handler: async (params: Record<string, any>) => {
-        const result = editFile(params.path as string, params.old_content as string, params.new_content as string);
+        const result = editFile(
+          params.path as string,
+          params.old_content as string,
+          params.new_content as string
+        );
         return { success: result.success, data: result.data, error: result.error };
-      }
+      },
     },
     {
-      name: "list_directory",
-      description: "List contents of a directory. Shows current working directory.",
+      name: 'list_directory',
+      description: 'List contents of a directory. Shows current working directory.',
       parameters: {
-        path: { name: "path", type: "string" as const, description: "Path to the directory (default: current working directory)", required: false }
+        path: {
+          name: 'path',
+          type: 'string' as const,
+          description: 'Path to the directory (default: current working directory)',
+          required: false,
+        },
       },
       handler: async (params: Record<string, any>) => {
-        const result = listDirectory(params.path as string || ".");
+        const result = listDirectory((params.path as string) || '.');
         return { success: result.success, data: result.data, error: result.error };
-      }
+      },
     },
     {
-      name: "create_directory",
-      description: "Create a new directory",
+      name: 'create_directory',
+      description: 'Create a new directory',
       parameters: {
-        path: { name: "path", type: "string" as const, description: "Path of the directory to create (relative to working directory or absolute)", required: true }
+        path: {
+          name: 'path',
+          type: 'string' as const,
+          description:
+            'Path of the directory to create (relative to working directory or absolute)',
+          required: true,
+        },
       },
       handler: async (params: Record<string, any>) => {
         const result = createDirectory(params.path as string);
         return { success: result.success, data: result.data, error: result.error };
-      }
+      },
     },
     {
-      name: "delete_file",
-      description: "Delete a file or directory",
+      name: 'delete_file',
+      description: 'Delete a file or directory',
       parameters: {
-        path: { name: "path", type: "string" as const, description: "Path to delete (relative to working directory or absolute)", required: true }
+        path: {
+          name: 'path',
+          type: 'string' as const,
+          description: 'Path to delete (relative to working directory or absolute)',
+          required: true,
+        },
       },
       handler: async (params: Record<string, any>) => {
         const result = deleteFile(params.path as string);
         return { success: result.success, data: result.data, error: result.error };
-      }
+      },
     },
     {
-      name: "move_file",
-      description: "Move or rename a file or directory",
+      name: 'move_file',
+      description: 'Move or rename a file or directory',
       parameters: {
-        source: { name: "source", type: "string" as const, description: "Source path to move", required: true },
-        destination: { name: "destination", type: "string" as const, description: "Destination path", required: true }
+        source: {
+          name: 'source',
+          type: 'string' as const,
+          description: 'Source path to move',
+          required: true,
+        },
+        destination: {
+          name: 'destination',
+          type: 'string' as const,
+          description: 'Destination path',
+          required: true,
+        },
       },
       handler: async (params: Record<string, any>) => {
         const result = moveFile(params.source as string, params.destination as string);
         return { success: result.success, data: result.data, error: result.error };
-      }
+      },
     },
     {
-      name: "search_files",
-      description: "Search for files by name pattern",
+      name: 'search_files',
+      description: 'Search for files by name pattern',
       parameters: {
-        pattern: { name: "pattern", type: "string" as const, description: "Search pattern (case-insensitive)", required: true },
-        dir: { name: "dir", type: "string" as const, description: "Directory to search in (default: current working directory)", required: false }
+        pattern: {
+          name: 'pattern',
+          type: 'string' as const,
+          description: 'Search pattern (case-insensitive)',
+          required: true,
+        },
+        dir: {
+          name: 'dir',
+          type: 'string' as const,
+          description: 'Directory to search in (default: current working directory)',
+          required: false,
+        },
       },
       handler: async (params: Record<string, any>) => {
-        const result = searchFiles(params.pattern as string, params.dir as string || ".");
+        const result = searchFiles(params.pattern as string, (params.dir as string) || '.');
         return { success: result.success, data: result.data, error: result.error };
-      }
-    }
-  ]
+      },
+    },
+  ],
 };

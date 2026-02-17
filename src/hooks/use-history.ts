@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback } from 'react';
 
 interface UseHistoryOptions {
   history: string[];
@@ -15,7 +15,7 @@ interface UseHistoryReturn {
 
 export function useHistory({ history, input, setInput }: UseHistoryOptions): UseHistoryReturn {
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const tempInput = useRef("");
+  const tempInput = useRef('');
 
   const navigateUp = useCallback(() => {
     if (history.length === 0) return;

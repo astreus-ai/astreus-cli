@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { Box, Text, useInput } from "ink";
-import TextInput from "ink-text-input";
+import React, { useState, useEffect } from 'react';
+import { Box, Text, useInput } from 'ink';
+import TextInput from 'ink-text-input';
 import {
   listSessions,
   createSession,
   deleteSession,
   renameSession,
   type SessionMeta,
-} from "../../utils/sessions";
+} from '../../utils/sessions';
 
 interface SessionModalProps {
   currentSessionId: string | null;
@@ -16,18 +16,13 @@ interface SessionModalProps {
   onClose: () => void;
 }
 
-type Mode = "list" | "new" | "rename" | "delete-confirm";
+type Mode = 'list' | 'new' | 'rename' | 'delete-confirm';
 
-export function SessionModal({
-  currentSessionId,
-  onSelect,
-  onNew,
-  onClose,
-}: SessionModalProps) {
-  const [mode, setMode] = useState<Mode>("list");
+export function SessionModal({ currentSessionId, onSelect, onNew, onClose }: SessionModalProps) {
+  const [mode, setMode] = useState<Mode>('list');
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState('');
 
   useEffect(() => {
     const loaded = listSessions();
@@ -42,16 +37,16 @@ export function SessionModal({
   const selectedSession = sessions[selectedIndex];
 
   useInput((input, key) => {
-    if (mode === "new" || mode === "rename") {
+    if (mode === 'new' || mode === 'rename') {
       if (key.escape) {
-        setMode("list");
-        setInputValue("");
+        setMode('list');
+        setInputValue('');
       }
       return;
     }
 
-    if (mode === "delete-confirm") {
-      if (input.toLowerCase() === "y") {
+    if (mode === 'delete-confirm') {
+      if (input.toLowerCase() === 'y') {
         if (selectedSession) {
           deleteSession(selectedSession.id);
           const newSessions = sessions.filter((s) => s.id !== selectedSession.id);
@@ -60,9 +55,9 @@ export function SessionModal({
             setSelectedIndex(Math.max(0, newSessions.length - 1));
           }
         }
-        setMode("list");
-      } else if (input.toLowerCase() === "n" || key.escape) {
-        setMode("list");
+        setMode('list');
+      } else if (input.toLowerCase() === 'n' || key.escape) {
+        setMode('list');
       }
       return;
     }
@@ -91,20 +86,20 @@ export function SessionModal({
     }
 
     // Keyboard shortcuts
-    if (input === "n") {
-      setMode("new");
-      setInputValue("");
+    if (input === 'n') {
+      setMode('new');
+      setInputValue('');
       return;
     }
 
-    if (input === "r" && selectedSession) {
-      setMode("rename");
+    if (input === 'r' && selectedSession) {
+      setMode('rename');
       setInputValue(selectedSession.name);
       return;
     }
 
-    if (input === "d" && selectedSession && sessions.length > 1) {
-      setMode("delete-confirm");
+    if (input === 'd' && selectedSession && sessions.length > 1) {
+      setMode('delete-confirm');
       return;
     }
   });
@@ -120,29 +115,37 @@ export function SessionModal({
       renameSession(selectedSession.id, value.trim());
       setSessions(listSessions());
     }
-    setMode("list");
-    setInputValue("");
+    setMode('list');
+    setInputValue('');
   };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return (
+      date.toLocaleDateString() +
+      ' ' +
+      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    );
   };
 
-  if (mode === "delete-confirm" && selectedSession) {
+  if (mode === 'delete-confirm' && selectedSession) {
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text color="red" bold>Delete Session</Text>
+        <Text color="red" bold>
+          Delete Session
+        </Text>
         <Text>Are you sure you want to delete "{selectedSession.name}"?</Text>
         <Text dimColor>(y/n)</Text>
       </Box>
     );
   }
 
-  if (mode === "new") {
+  if (mode === 'new') {
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text color="green" bold>New Session</Text>
+        <Text color="green" bold>
+          New Session
+        </Text>
         <Box>
           <Text>Name: </Text>
           <TextInput
@@ -157,17 +160,15 @@ export function SessionModal({
     );
   }
 
-  if (mode === "rename" && selectedSession) {
+  if (mode === 'rename' && selectedSession) {
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text color="yellow" bold>Rename Session</Text>
+        <Text color="yellow" bold>
+          Rename Session
+        </Text>
         <Box>
           <Text>Name: </Text>
-          <TextInput
-            value={inputValue}
-            onChange={setInputValue}
-            onSubmit={handleRenameSubmit}
-          />
+          <TextInput value={inputValue} onChange={setInputValue} onSubmit={handleRenameSubmit} />
         </Box>
         <Text dimColor>Press Enter to save, Esc to cancel</Text>
       </Box>
@@ -176,9 +177,11 @@ export function SessionModal({
 
   return (
     <Box flexDirection="column" marginTop={1}>
-      <Text color="green" bold>Sessions</Text>
+      <Text color="green" bold>
+        Sessions
+      </Text>
       <Text dimColor>
-        Esc close | Enter select | n new | r rename{sessions.length > 1 ? " | d delete" : ""}
+        Esc close | Enter select | n new | r rename{sessions.length > 1 ? ' | d delete' : ''}
       </Text>
 
       <Box flexDirection="column" marginTop={1}>
@@ -190,13 +193,13 @@ export function SessionModal({
             const isCurrent = session.id === currentSessionId;
             return (
               <Box key={session.id}>
-                <Text color={isSelected ? "cyan" : undefined} bold={isSelected}>
-                  {isSelected ? "> " : "  "}
+                <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+                  {isSelected ? '> ' : '  '}
                   {session.name}
-                  {isCurrent ? " *" : ""}
+                  {isCurrent ? ' *' : ''}
                 </Text>
                 <Text dimColor>
-                  {"  "}({session.messageCount} msgs, {formatDate(session.updatedAt)})
+                  {'  '}({session.messageCount} msgs, {formatDate(session.updatedAt)})
                 </Text>
               </Box>
             );

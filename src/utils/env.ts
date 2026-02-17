@@ -1,25 +1,25 @@
-import { writeFileSync, readFileSync, existsSync } from "fs";
-import { join } from "path";
-import { ENV_KEY_MAP } from "../config";
-import type { ProviderType } from "../types";
+import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { join } from 'path';
+import { ENV_KEY_MAP } from '../config';
+import type { ProviderType } from '../types';
 
-const ENV_PATH = join(process.cwd(), ".env");
+const ENV_PATH = join(process.cwd(), '.env');
 
 export function getEnvKeyName(provider: ProviderType): string {
-  return ENV_KEY_MAP[provider] || "OPENAI_API_KEY";
+  return ENV_KEY_MAP[provider] || 'OPENAI_API_KEY';
 }
 
 export function getEnvValue(key: string): string {
-  return process.env[key] || "";
+  return process.env[key] || '';
 }
 
 export function saveEnvVar(key: string, value: string): void {
   process.env[key] = value;
 
-  let envContent = "";
+  let envContent = '';
   if (existsSync(ENV_PATH)) {
-    envContent = readFileSync(ENV_PATH, "utf-8");
-    const regex = new RegExp(`^${key}=.*$`, "m");
+    envContent = readFileSync(ENV_PATH, 'utf-8');
+    const regex = new RegExp(`^${key}=.*$`, 'm');
     if (regex.test(envContent)) {
       envContent = envContent.replace(regex, `${key}=${value}`);
     } else {
@@ -28,7 +28,7 @@ export function saveEnvVar(key: string, value: string): void {
   } else {
     envContent = `${key}=${value}`;
   }
-  writeFileSync(ENV_PATH, envContent.trim() + "\n");
+  writeFileSync(ENV_PATH, envContent.trim() + '\n');
 }
 
 export function saveApiKey(provider: ProviderType, key: string): void {
@@ -38,5 +38,5 @@ export function saveApiKey(provider: ProviderType, key: string): void {
 
 export function isApiKeyError(message: string): boolean {
   const lower = message.toLowerCase();
-  return lower.includes("api key") || lower.includes("api_key");
+  return lower.includes('api key') || lower.includes('api_key');
 }

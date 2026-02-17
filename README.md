@@ -45,22 +45,6 @@ astreus --provider claude
 | `/help` | Show available commands |
 | `/exit` | Exit the CLI |
 
-## Environment Variables
-
-```bash
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Anthropic Claude
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Google Gemini
-GOOGLE_API_KEY=...
-
-# Ollama (local)
-OLLAMA_HOST=http://localhost:11434
-```
-
 ## Requirements
 
 - Node.js >= 22.0.0

@@ -5,7 +5,7 @@ export const PROVIDERS: ProviderType[] = ['openai', 'claude', 'gemini', 'ollama'
 export const ENV_KEY_MAP: Record<ProviderType, string> = {
   openai: 'OPENAI_API_KEY',
   claude: 'ANTHROPIC_API_KEY',
-  gemini: 'GOOGLE_API_KEY',
+  gemini: 'GEMINI_API_KEY',
   ollama: 'OLLAMA_HOST',
 };
 

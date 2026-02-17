@@ -1,6 +1,6 @@
-import React from "react";
-import { Box, Text } from "ink";
-import Spinner from "ink-spinner";
+import React from 'react';
+import { Box, Text } from 'ink';
+import Spinner from 'ink-spinner';
 
 interface ToolCall {
   name: string;
@@ -13,11 +13,11 @@ interface ToolCallsProps {
 }
 
 function truncateResult(result: string | undefined, maxLen: number = 60): string {
-  if (!result) return "";
+  if (!result) return '';
   // Remove newlines and extra spaces
-  const cleaned = result.replace(/\s+/g, " ").trim();
+  const cleaned = result.replace(/\s+/g, ' ').trim();
   if (cleaned.length <= maxLen) return cleaned;
-  return cleaned.slice(0, maxLen) + "...";
+  return cleaned.slice(0, maxLen) + '...';
 }
 
 export function ToolCalls({ tools, currentTool }: ToolCallsProps) {
@@ -29,14 +29,14 @@ export function ToolCalls({ tools, currentTool }: ToolCallsProps) {
         <Box key={i}>
           <Text color="green">[check] </Text>
           <Text color="cyan">{tool.name}</Text>
-          {tool.result && (
-            <Text dimColor> → {truncateResult(tool.result)}</Text>
-          )}
+          {tool.result && <Text dimColor> → {truncateResult(tool.result)}</Text>}
         </Box>
       ))}
       {currentTool && currentTool.status === 'running' && (
         <Box>
-          <Text color="yellow"><Spinner type="dots" /> </Text>
+          <Text color="yellow">
+            <Spinner type="dots" />{' '}
+          </Text>
           <Text color="cyan">{currentTool.name}</Text>
         </Box>
       )}

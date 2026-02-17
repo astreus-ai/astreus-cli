@@ -6,7 +6,7 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  external: ["@astreus-ai/sdk"],
+  external: ["@astreus-ai/astreus"],
   banner: {
     js: "#!/usr/bin/env node",
   },

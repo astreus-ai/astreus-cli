@@ -130,7 +130,7 @@ export function App() {
           turnCountRef.current = Math.floor(session.messages.length / 2);
         }
 
-        const sdk = await import("@astreus-ai/sdk");
+        const sdk = await import("@astreus-ai/astreus");
         if (!mounted) return;
         sdkRef.current = sdk;
 

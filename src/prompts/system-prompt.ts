@@ -78,9 +78,9 @@ Astreus is an open-source TypeScript framework for building production-ready AI 
 
 ### Installation
 \`\`\`bash
-npm install @astreus-ai/sdk
+npm install @astreus-ai/astreus
 # or
-pnpm add @astreus-ai/sdk
+pnpm add @astreus-ai/astreus
 \`\`\`
 
 ### Core Features
@@ -93,7 +93,7 @@ pnpm add @astreus-ai/sdk
 
 **2. Agent Creation**
 \`\`\`typescript
-import { Agent } from '@astreus-ai/sdk';
+import { Agent } from '@astreus-ai/astreus';
 
 const agent = await Agent.create({
   name: 'my-agent',
@@ -278,7 +278,7 @@ my-agent/
 
 ### Example: Creating a Code Assistant Agent
 \`\`\`typescript
-import { Agent } from '@astreus-ai/sdk';
+import { Agent } from '@astreus-ai/astreus';
 
 async function main() {
   const agent = await Agent.create({

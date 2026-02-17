@@ -1,8 +1,8 @@
-import React from "react";
-import { Box, Text } from "ink";
-import TextInput from "ink-text-input";
-import Spinner from "ink-spinner";
-import type { ModalType } from "../types";
+import React from 'react';
+import { Box, Text } from 'ink';
+import TextInput from 'ink-text-input';
+import Spinner from 'ink-spinner';
+import type { ModalType } from '../types';
 
 interface InputAreaProps {
   input: string;
@@ -51,18 +51,26 @@ export function InputArea({
 
   // Format tool name for display
   const toolDisplay = currentTool
-    ? currentTool.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    ? currentTool
+        .split('_')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
     : null;
 
   return (
     <Box flexDirection="column" marginTop={1}>
       {isLoading && (
         <Box marginBottom={1}>
-          <Text color="yellow"><Spinner type="dots" /></Text>
+          <Text color="yellow">
+            <Spinner type="dots" />
+          </Text>
           {toolDisplay ? (
-            <Text> <Text color="yellow">{toolDisplay}</Text></Text>
+            <Text>
+              {' '}
+              <Text color="yellow">{toolDisplay}</Text>
+            </Text>
           ) : (
-            <Text dimColor> {isStreaming ? "Streaming" : "Thinking"}...</Text>
+            <Text dimColor> {isStreaming ? 'Streaming' : 'Thinking'}...</Text>
           )}
           <Text dimColor> (esc</Text>
           {elapsedTime > 0 && <Text dimColor> · {formatTime(elapsedTime)}</Text>}
@@ -73,9 +81,9 @@ export function InputArea({
       <Text dimColor>{line}</Text>
       {!modal ? (
         <Box>
-          <Text color={disabled ? "gray" : "cyan"}>{">"} </Text>
+          <Text color={disabled ? 'gray' : 'cyan'}>{'>'} </Text>
           <TextInput
-            value={disabled ? "" : input}
+            value={disabled ? '' : input}
             onChange={disabled ? () => {} : setInput}
             onSubmit={disabled ? () => {} : onSubmit}
             focus={!disabled}
@@ -85,12 +93,12 @@ export function InputArea({
         </Box>
       ) : (
         <Box>
-          <Text color="cyan">{">"} </Text>
+          <Text color="cyan">{'>'} </Text>
           <Text dimColor>/{modal}</Text>
         </Box>
       )}
       <Text dimColor>{line}</Text>
-      <Text dimColor>  ? shortcuts | up/down history</Text>
+      <Text dimColor> ? shortcuts | up/down history</Text>
     </Box>
   );
 }

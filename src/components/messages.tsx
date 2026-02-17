@@ -1,6 +1,6 @@
-import React from "react";
-import { Box, Text } from "ink";
-import type { Message } from "../types";
+import React from 'react';
+import { Box, Text } from 'ink';
+import type { Message } from '../types';
 
 interface MessagesProps {
   messages: Message[];
@@ -9,46 +9,67 @@ interface MessagesProps {
 
 // Simple markdown renderer
 function renderMarkdown(text: string): React.ReactNode[] {
-  const lines = text.split("\n");
+  const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
 
   lines.forEach((line, lineIndex) => {
     const key = `line-${lineIndex}`;
 
     // Empty line - preserve spacing
-    if (line.trim() === "") {
+    if (line.trim() === '') {
       elements.push(<Text key={key}> </Text>);
       return;
     }
 
     // Headers
-    if (line.startsWith("### ")) {
-      elements.push(<Text key={key} color="cyan" bold>{line.slice(4)}</Text>);
+    if (line.startsWith('### ')) {
+      elements.push(
+        <Text key={key} color="cyan" bold>
+          {line.slice(4)}
+        </Text>
+      );
       return;
     }
-    if (line.startsWith("## ")) {
-      elements.push(<Text key={key} color="cyan" bold>{line.slice(3)}</Text>);
+    if (line.startsWith('## ')) {
+      elements.push(
+        <Text key={key} color="cyan" bold>
+          {line.slice(3)}
+        </Text>
+      );
       return;
     }
-    if (line.startsWith("# ")) {
-      elements.push(<Text key={key} color="cyan" bold>{line.slice(2)}</Text>);
+    if (line.startsWith('# ')) {
+      elements.push(
+        <Text key={key} color="cyan" bold>
+          {line.slice(2)}
+        </Text>
+      );
       return;
     }
 
     // Horizontal rule
     if (line.match(/^-{3,}$/) || line.match(/^\*{3,}$/)) {
-      elements.push(<Text key={key} dimColor>{"─".repeat(40)}</Text>);
+      elements.push(
+        <Text key={key} dimColor>
+          {'─'.repeat(40)}
+        </Text>
+      );
       return;
     }
 
     // List items
     if (line.match(/^(\d+)\.\s/)) {
-      const content = line.replace(/^\d+\.\s/, "");
-      elements.push(<Text key={key}>  {line.match(/^\d+/)?.[0]}. {renderInlineMarkdown(content)}</Text>);
+      const content = line.replace(/^\d+\.\s/, '');
+      elements.push(
+        <Text key={key}>
+          {' '}
+          {line.match(/^\d+/)?.[0]}. {renderInlineMarkdown(content)}
+        </Text>
+      );
       return;
     }
-    if (line.startsWith("- ") || line.startsWith("* ")) {
-      elements.push(<Text key={key}>  • {renderInlineMarkdown(line.slice(2))}</Text>);
+    if (line.startsWith('- ') || line.startsWith('* ')) {
+      elements.push(<Text key={key}> • {renderInlineMarkdown(line.slice(2))}</Text>);
       return;
     }
 
@@ -71,16 +92,31 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
     // Code: `text`
     const codeMatch = remaining.match(/`([^`]+)`/);
 
-    let firstMatch: { type: "bold" | "code"; index: number; length: number; content: string } | null = null;
+    let firstMatch: {
+      type: 'bold' | 'code';
+      index: number;
+      length: number;
+      content: string;
+    } | null = null;
 
     if (boldMatch && boldMatch.index !== undefined) {
       if (!firstMatch || boldMatch.index < firstMatch.index) {
-        firstMatch = { type: "bold", index: boldMatch.index, length: boldMatch[0].length, content: boldMatch[1] };
+        firstMatch = {
+          type: 'bold',
+          index: boldMatch.index,
+          length: boldMatch[0].length,
+          content: boldMatch[1],
+        };
       }
     }
     if (codeMatch && codeMatch.index !== undefined) {
       if (!firstMatch || codeMatch.index < firstMatch.index) {
-        firstMatch = { type: "code", index: codeMatch.index, length: codeMatch[0].length, content: codeMatch[1] };
+        firstMatch = {
+          type: 'code',
+          index: codeMatch.index,
+          length: codeMatch[0].length,
+          content: codeMatch[1],
+        };
       }
     }
 
@@ -91,10 +127,18 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
       }
 
       // Add formatted text
-      if (firstMatch.type === "bold") {
-        parts.push(<Text key={`part-${partIndex++}`} bold>{firstMatch.content}</Text>);
-      } else if (firstMatch.type === "code") {
-        parts.push(<Text key={`part-${partIndex++}`} color="yellow">{firstMatch.content}</Text>);
+      if (firstMatch.type === 'bold') {
+        parts.push(
+          <Text key={`part-${partIndex++}`} bold>
+            {firstMatch.content}
+          </Text>
+        );
+      } else if (firstMatch.type === 'code') {
+        parts.push(
+          <Text key={`part-${partIndex++}`} color="yellow">
+            {firstMatch.content}
+          </Text>
+        );
       }
 
       remaining = remaining.slice(firstMatch.index + firstMatch.length);
@@ -117,35 +161,47 @@ export function Messages({ messages, streamingContent }: MessagesProps) {
     <Box flexDirection="column" marginY={1}>
       {messages.map((msg) => (
         <Box key={msg.id} marginTop={1} flexDirection="column">
-          {msg.type === "user" && (
+          {msg.type === 'user' && (
             <Text>
-              <Text color="cyan" bold>You: </Text>
+              <Text color="cyan" bold>
+                You:{' '}
+              </Text>
               {msg.content}
             </Text>
           )}
-          {msg.type === "assistant" && (
+          {msg.type === 'assistant' && (
             <Box flexDirection="column">
-              {renderMarkdown(msg.content).map((line, idx) => (
+              {renderMarkdown(msg.content).map((line, idx) =>
                 idx === 0 ? (
-                  <Text key={idx}><Text color="green" bold>Astreus:</Text> {line}</Text>
+                  <Text key={idx}>
+                    <Text color="green" bold>
+                      Astreus:
+                    </Text>{' '}
+                    {line}
+                  </Text>
                 ) : (
                   <Box key={idx}>{line}</Box>
                 )
-              ))}
+              )}
             </Box>
           )}
-          {msg.type === "system" && <Text dimColor>{msg.content}</Text>}
+          {msg.type === 'system' && <Text dimColor>{msg.content}</Text>}
         </Box>
       ))}
       {streamingContent && (
         <Box marginTop={1} flexDirection="column">
-          {renderMarkdown(streamingContent).map((line, idx) => (
+          {renderMarkdown(streamingContent).map((line, idx) =>
             idx === 0 ? (
-              <Text key={idx}><Text color="green" bold>Astreus:</Text> {line}</Text>
+              <Text key={idx}>
+                <Text color="green" bold>
+                  Astreus:
+                </Text>{' '}
+                {line}
+              </Text>
             ) : (
               <Box key={idx}>{line}</Box>
             )
-          ))}
+          )}
         </Box>
       )}
     </Box>

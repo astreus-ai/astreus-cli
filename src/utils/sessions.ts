@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
-import type { Message } from "../types";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+import type { Message } from '../types';
 
 export interface Session {
   id: string;
@@ -22,11 +22,11 @@ export interface SessionMeta {
   messageCount: number;
 }
 
-const SESSIONS_DIR = join(homedir(), ".astreus", "sessions");
-const CURRENT_SESSION_FILE = join(homedir(), ".astreus", "current-session");
+const SESSIONS_DIR = join(homedir(), '.astreus', 'sessions');
+const CURRENT_SESSION_FILE = join(homedir(), '.astreus', 'current-session');
 
 function ensureDir(): void {
-  const astreusDir = join(homedir(), ".astreus");
+  const astreusDir = join(homedir(), '.astreus');
   if (!existsSync(astreusDir)) {
     mkdirSync(astreusDir, { recursive: true });
   }
@@ -74,7 +74,7 @@ export function loadSession(id: string): Session | null {
     return null;
   }
   try {
-    const content = readFileSync(filePath, "utf-8");
+    const content = readFileSync(filePath, 'utf-8');
     const session = JSON.parse(content) as Session;
 
     // Migration: add graphId if missing (for old sessions)
@@ -109,12 +109,12 @@ export function deleteSession(id: string): boolean {
 export function listSessions(): SessionMeta[] {
   ensureDir();
   try {
-    const files = readdirSync(SESSIONS_DIR).filter((f) => f.endsWith(".json"));
+    const files = readdirSync(SESSIONS_DIR).filter((f) => f.endsWith('.json'));
     const sessions: SessionMeta[] = [];
 
     for (const file of files) {
       try {
-        const content = readFileSync(join(SESSIONS_DIR, file), "utf-8");
+        const content = readFileSync(join(SESSIONS_DIR, file), 'utf-8');
         const session = JSON.parse(content) as Session;
         sessions.push({
           id: session.id,
@@ -129,8 +129,8 @@ export function listSessions(): SessionMeta[] {
     }
 
     // Sort by updatedAt descending (most recent first)
-    return sessions.sort((a, b) =>
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    return sessions.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
   } catch {
     return [];
@@ -142,7 +142,7 @@ export function getCurrentSessionId(): string | null {
     return null;
   }
   try {
-    return readFileSync(CURRENT_SESSION_FILE, "utf-8").trim();
+    return readFileSync(CURRENT_SESSION_FILE, 'utf-8').trim();
   } catch {
     return null;
   }

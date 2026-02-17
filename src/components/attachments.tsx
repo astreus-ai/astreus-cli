@@ -1,6 +1,6 @@
-import React from "react";
-import { Box, Text } from "ink";
-import type { Attachment } from "../utils/attachments";
+import React from 'react';
+import { Box, Text } from 'ink';
+import type { Attachment } from '../utils/attachments';
 
 interface AttachmentsProps {
   attachments: Attachment[];
@@ -15,14 +15,14 @@ export function Attachments({ attachments }: AttachmentsProps) {
       <Text dimColor>Attachments ({attachments.length}):</Text>
       {attachments.map((att, index) => (
         <Box key={att.id}>
-          <Text dimColor>  {index + 1}. </Text>
-          {att.type === "image" && <Text color="magenta">[IMG] </Text>}
-          {att.type === "folder" && <Text color="blue">[DIR] </Text>}
-          {att.type === "file" && <Text color="yellow">[FILE] </Text>}
+          <Text dimColor> {index + 1}. </Text>
+          {att.type === 'image' && <Text color="magenta">[IMG] </Text>}
+          {att.type === 'folder' && <Text color="blue">[DIR] </Text>}
+          {att.type === 'file' && <Text color="yellow">[FILE] </Text>}
           <Text>{att.name}</Text>
         </Box>
       ))}
-      <Text dimColor>  (type /clear-attachments to remove all)</Text>
+      <Text dimColor> (type /clear-attachments to remove all)</Text>
     </Box>
   );
 }

@@ -18,7 +18,7 @@ export async function getModelsFromSDK(): Promise<Record<ProviderType, string[]>
   if (cachedModels) return cachedModels;
 
   try {
-    const { getModelsByProvider } = await import("@astreus-ai/sdk/llm/models");
+    const { getModelsByProvider } = await import("@astreus-ai/astreus/llm/models");
     cachedModels = {
       openai: getModelsByProvider("openai"),
       claude: getModelsByProvider("claude"),

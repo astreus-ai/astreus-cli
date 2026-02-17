@@ -30,7 +30,7 @@ export function useAgent({ model, onMessage }: UseAgentOptions): UseAgentReturn 
 
     const init = async () => {
       try {
-        const sdk = await import("@astreus-ai/sdk");
+        const sdk = await import("@astreus-ai/astreus");
         if (!mounted) return;
         sdkRef.current = sdk;
 

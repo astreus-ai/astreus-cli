@@ -1,6 +1,6 @@
 {
   "name": "@astreus-ai/astreus-cli",
-  "version": "0.5.38",
+  "version": "0.5.39",
   "description": "Interactive terminal interface for Astreus AI agents",
   "author": "Berke Kiran",
   "license": "MIT",

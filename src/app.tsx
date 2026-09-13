@@ -14,7 +14,19 @@ import {
   getFilteredCommands,
 } from './components';
 import { useHistory } from './hooks';
-import { PROVIDERS, getModelsFromSDK, getDefaultModel } from './config';
+import {
+  PROVIDERS,
+  DEFAULT_PROVIDER,
+  getModelsFromSDK,
+  isProvider,
+  resolveModelSelection,
+  resolveProviderSelection,
+  resolveStartupSelection,
+  type ModelCatalog,
+  type ModelSelection,
+} from './config';
+import { prepareRuntime, type SDK } from './runtime';
+import type { Agent, Graph } from '@astreus-ai/astreus';
 import { saveApiKey, isApiKeyError } from './utils/env';
 import {
   getOrCreateCurrentSession,
@@ -23,8 +35,7 @@ import {
   createSession,
   type Session,
 } from './utils/sessions';
-import { fileToolsPlugin, setWorkingDirectory, getWorkingDirectory } from './tools/file-tools';
-import { ASTREUS_SYSTEM_PROMPT } from './prompts/system-prompt';
+import { setWorkingDirectory, getWorkingDirectory } from './tools/file-tools';
 import {
   createAttachment,
   parsePathFromInput,
@@ -32,9 +43,9 @@ import {
   attachmentsToAgentFormat,
   type Attachment,
 } from './utils/attachments';
-import type { Message, ModalType, ProviderType } from './types';
+import type { Message, ModalType } from './types';
 
-const VERSION = '0.5.38';
+const VERSION = '0.6.0';
 
 export function App() {
   const { exit } = useApp();
@@ -65,17 +76,25 @@ export function App() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
   const [selectIndex, setSelectIndex] = useState(0);
-  const [provider, setProvider] = useState<ProviderType>(
-    (process.env.ASTREUS_PROVIDER as ProviderType) || 'openai'
-  );
-  const [model, setModel] = useState(process.env.ASTREUS_MODEL || 'gpt-4o');
-  const [models, setModels] = useState<string[]>([]);
+  const [selection, setSelection] = useState<ModelSelection>({
+    provider: DEFAULT_PROVIDER,
+    model: null,
+  });
+  const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
+  const { provider } = selection;
+  const model = selection.model || '';
+  const models = catalog?.models[provider] || [];
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [streamingContent, setStreamingContent] = useState('');
   const [_isThinking, setIsThinking] = useState(false);
   const [cmdSuggestionIndex, setCmdSuggestionIndex] = useState(0);
-  const [currentSession, setCurrentSession] = useState<Session | null>(null);
+  const [currentSession, setSession] = useState<Session | null>(null);
+  const currentSessionRef = useRef<Session | null>(null);
+  const setCurrentSession = useCallback((session: Session) => {
+    currentSessionRef.current = session;
+    setSession(session);
+  }, []);
   const [tokenCount, setTokenCount] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -89,7 +108,10 @@ export function App() {
   const streamingDoneRef = useRef(false);
   const interruptedRef = useRef(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const graphRef = useRef<any>(null);
+  const graphRef = useRef<Graph | null>(null);
+  const retryMessageRef = useRef<string | null>(null);
+  const retryTaskRef = useRef<string | null>(null);
+  const submittingRef = useRef(false);
   const turnCountRef = useRef(0);
 
   const showCommandSuggestions = input.startsWith('/') && !modal && !isLoading && !isInitializing;
@@ -122,8 +144,8 @@ export function App() {
     }
   }, [input]);
 
-  const agentRef = React.useRef<any>(null);
-  const sdkRef = React.useRef<any>(null);
+  const agentRef = useRef<Agent | null>(null);
+  const sdkRef = useRef<SDK | null>(null);
 
   const history = messages.filter((m) => m.type === 'user').map((m) => m.content);
   const { navigateUp, navigateDown, resetHistory } = useHistory({
@@ -134,14 +156,7 @@ export function App() {
 
   const cwd = process.cwd().replace(process.env.HOME || '', '~');
 
-  // Load models from SDK
-  useEffect(() => {
-    getModelsFromSDK().then((modelMap) => {
-      setModels(modelMap[provider] || []);
-    });
-  }, [provider]);
-
-  // Initialize agent, graph and load session
+  // Initialize the genuine catalog before creating an agent or choosing a model.
   useEffect(() => {
     let mounted = true;
 
@@ -157,67 +172,54 @@ export function App() {
           turnCountRef.current = Math.floor(session.messages.length / 2);
         }
 
+        const loadedCatalog = await getModelsFromSDK();
+        if (!mounted) return;
+        setCatalog(loadedCatalog);
+        const initialSelection = resolveStartupSelection(loadedCatalog, {
+          ASTREUS_PROVIDER: process.env.ASTREUS_PROVIDER,
+          ASTREUS_MODEL: process.env.ASTREUS_MODEL,
+        });
+        setSelection(initialSelection);
+        if (!initialSelection.model) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `${Date.now()}`,
+              type: 'system',
+              content:
+                'This provider has no supported default. Choose a current model explicitly with /model or ASTREUS_MODEL.',
+            },
+          ]);
+          return;
+        }
+
         const sdk = await import('@astreus-ai/astreus');
         if (!mounted) return;
         sdkRef.current = sdk;
-
-        // Create agent
-        const agent = await (sdk.Agent as any).create({
-          name: 'astreus-cli',
-          model,
-          systemPrompt: ASTREUS_SYSTEM_PROMPT,
-          useTools: true,
-          memory: true,
+        const runtime = await prepareRuntime(sdk, initialSelection.model, session, {
+          agent: null,
+          graph: null,
         });
-
         if (!mounted) return;
-
-        // Register file tools plugin
-        if (agent.registerPlugin) {
-          await agent.registerPlugin(fileToolsPlugin);
+        const updatedSession = { ...runtime.session, provider: initialSelection.provider };
+        saveSession(updatedSession);
+        setCurrentSession(updatedSession);
+        agentRef.current = runtime.agent;
+        graphRef.current = runtime.graph;
+        if (runtime.contextRestarted) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `${Date.now()}`,
+              type: 'system',
+              content:
+                'A fresh conversation context is active for this model. Previous messages and graph records are retained, but are not sent to the new agent.',
+            },
+          ]);
         }
-
-        agentRef.current = agent;
-
-        // Create Graph for session
-        const GraphClass = sdk.Graph;
-        if (GraphClass) {
-          // Try to load existing graph or create new one
-          let graph: any = null;
-
-          if (session.graphId) {
-            try {
-              graph = await GraphClass.findById(session.graphId, agent);
-            } catch {
-              // Graph not found, will create new
-            }
-          }
-
-          if (!graph) {
-            graph = new GraphClass(
-              {
-                name: session.name || 'Chat Session',
-                description: 'Astreus CLI chat session',
-                maxConcurrency: 1,
-                autoLink: true,
-                timeout: 300000,
-              },
-              agent
-            );
-
-            // Save and update session with graphId
-            const graphId = await graph.save();
-            if (graphId && session.graphId !== graphId) {
-              session.graphId = graphId;
-              saveSession(session);
-            }
-          }
-
-          graphRef.current = graph;
-        }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (mounted) {
-          const msg = e.message || String(e);
+          const msg = e instanceof Error ? e.message : String(e);
           // Check if it's an API key error during init
           if (isApiKeyError(msg)) {
             setModal('apikey');
@@ -245,11 +247,14 @@ export function App() {
       setMessages((prev) => {
         const updated = [...prev, newMessage];
         // Save to session (only user and assistant messages)
-        if (currentSession && (type === 'user' || type === 'assistant')) {
+        const session = currentSessionRef.current;
+        if (session && (type === 'user' || type === 'assistant')) {
           const sessionMessages = updated.filter(
             (m) => m.type === 'user' || m.type === 'assistant'
           );
-          saveSession({ ...currentSession, messages: sessionMessages });
+          const updatedSession = { ...session, messages: sessionMessages };
+          saveSession(updatedSession);
+          currentSessionRef.current = updatedSession;
         }
         return updated;
       });
@@ -258,9 +263,66 @@ export function App() {
     [resetHistory, currentSession]
   );
 
+  const openSelector = useCallback(
+    async (kind: 'model' | 'provider') => {
+      try {
+        const loadedCatalog = await getModelsFromSDK();
+        setCatalog(loadedCatalog);
+        if (kind === 'model' && loadedCatalog.models[provider].length === 0) {
+          throw new Error('The installed SDK has no chat models for this provider.');
+        }
+        setSelectIndex(
+          Math.max(
+            0,
+            kind === 'model'
+              ? loadedCatalog.models[provider].indexOf(model)
+              : PROVIDERS.indexOf(provider)
+          )
+        );
+        setModal(kind);
+      } catch (error: unknown) {
+        addMessage('system', error instanceof Error ? error.message : String(error));
+      }
+    },
+    [provider, model, addMessage]
+  );
+
+  const changeSelection = useCallback(
+    async (kind: 'model' | 'provider', value: string) => {
+      try {
+        if (submittingRef.current || graphRef.current?.getStatus() === 'running') {
+          throw new Error('Wait for the current execution to finish before changing models.');
+        }
+        const loadedCatalog = await getModelsFromSDK();
+        if (kind === 'provider' && !isProvider(value)) {
+          throw new Error('Unknown provider. Use openai, claude, gemini, or ollama.');
+        }
+        const next =
+          kind === 'provider' && isProvider(value)
+            ? resolveProviderSelection(value, loadedCatalog)
+            : resolveModelSelection(value, loadedCatalog);
+        setCatalog(loadedCatalog);
+        setSelection(next);
+        setSelectIndex(0);
+        setModal(null);
+        addMessage('system', `Provider: ${next.provider}\nModel: ${next.model || 'not selected'}`);
+        if (!next.model) {
+          addMessage(
+            'system',
+            'Choose a current model explicitly with /model. No replacement default was selected.'
+          );
+          if (loadedCatalog.models[next.provider].length > 0) setModal('model');
+        }
+      } catch (error: unknown) {
+        addMessage('system', error instanceof Error ? error.message : String(error));
+      }
+    },
+    [addMessage]
+  );
+
   const handleSubmit = useCallback(
     async (value: string) => {
-      if (modal || isInitializing) return;
+      if (modal || isInitializing || isLoading || submittingRef.current) return;
 
       let finalValue = value;
 
@@ -301,24 +363,12 @@ export function App() {
         const [cmd, ...args] = trimmed.slice(1).split(' ');
         switch (cmd) {
           case 'model':
-            if (args[0]) {
-              setModel(args[0]);
-              addMessage('system', `Model: ${args[0]}`);
-            } else {
-              setSelectIndex(Math.max(0, models.indexOf(model)));
-              setModal('model');
-            }
+            if (args[0]) await changeSelection('model', args[0]);
+            else await openSelector('model');
             return;
           case 'provider':
-            if (args[0] && PROVIDERS.includes(args[0] as ProviderType)) {
-              const newProvider = args[0] as ProviderType;
-              setProvider(newProvider);
-              setModel(getDefaultModel(newProvider));
-              addMessage('system', `Provider: ${newProvider}`);
-            } else {
-              setSelectIndex(Math.max(0, PROVIDERS.indexOf(provider)));
-              setModal('provider');
-            }
+            if (args[0]) await changeSelection('provider', args[0]);
+            else await openSelector('provider');
             return;
           case 'clear':
             setMessages([]);
@@ -336,29 +386,11 @@ export function App() {
             const newSession = createSession();
             setCurrentSession(newSession);
             setMessages([]);
-            agentRef.current?.clearContext?.();
+            agentRef.current = null;
+            graphRef.current = null;
+            retryTaskRef.current = null;
             turnCountRef.current = 0;
             setExecutedTools([]);
-            // Create new graph for new session
-            if (sdkRef.current?.Graph && agentRef.current) {
-              const newGraph = new sdkRef.current.Graph(
-                {
-                  name: newSession.name || 'Chat Session',
-                  description: 'Astreus CLI chat session',
-                  maxConcurrency: 1,
-                  autoLink: true,
-                  timeout: 300000,
-                },
-                agentRef.current
-              );
-              newGraph.save().then((graphId: string) => {
-                if (graphId) {
-                  newSession.graphId = graphId;
-                  saveSession(newSession);
-                }
-              });
-              graphRef.current = newGraph;
-            }
             addMessage('system', `New session: ${newSession.name}`);
             return;
           case 'settings':
@@ -411,7 +443,7 @@ export function App() {
             if (agentRef.current?.getTools) {
               const tools = agentRef.current.getTools();
               if (tools && tools.length > 0) {
-                const toolList = tools.map((t: any) => `• ${t.name}: ${t.description}`).join('\n');
+                const toolList = tools.map((t) => `• ${t.name}: ${t.description}`).join('\n');
                 addMessage('system', `Registered tools (${tools.length}):\n${toolList}`);
               } else {
                 addMessage('system', 'No tools registered');
@@ -420,8 +452,8 @@ export function App() {
               const plugins = agentRef.current.listPlugins();
               if (plugins && plugins.length > 0) {
                 const pluginInfo = plugins
-                  .map((p: any) => {
-                    const toolNames = p.tools?.map((t: any) => t.name).join(', ') || 'none';
+                  .map((p) => {
+                    const toolNames = p.tools?.map((t) => t.name).join(', ') || 'none';
                     return `• ${p.name} v${p.version}: ${toolNames}`;
                   })
                   .join('\n');
@@ -472,6 +504,19 @@ export function App() {
         }
       }
 
+      if (!catalog || !model) {
+        addMessage(
+          'system',
+          'No validated model is selected. Use /model or /provider before sending a message.'
+        );
+        return;
+      }
+      if (!currentSession) {
+        addMessage('system', 'No session is available. Use /new before sending a message.');
+        return;
+      }
+      submittingRef.current = true;
+
       // Build message - keep user message clean for history
       const currentAttachments = [...attachments];
       const workingDir = getWorkingDirectory();
@@ -494,22 +539,30 @@ export function App() {
       }, 1000);
 
       try {
-        // Check if agent needs to be recreated for model change
-        if (agentRef.current?.config?.model !== model && sdkRef.current) {
-          const newAgent = await (sdkRef.current.Agent as any).create({
-            name: 'astreus-cli',
-            model,
-            systemPrompt: ASTREUS_SYSTEM_PROMPT,
-            useTools: true,
-            memory: true,
-          });
-          if (newAgent.registerPlugin) {
-            await newAgent.registerPlugin(fileToolsPlugin);
-          }
-          agentRef.current = newAgent;
+        const validated = resolveModelSelection(model, catalog);
+        if (validated.provider !== provider) throw new Error('Provider and model do not match.');
+        const sdk = sdkRef.current || (await import('@astreus-ai/astreus'));
+        sdkRef.current = sdk;
+        const runtime = await prepareRuntime(sdk, model, currentSession, {
+          agent: agentRef.current,
+          graph: graphRef.current,
+        });
+        const updatedSession = {
+          ...runtime.session,
+          provider,
+          messages: currentSessionRef.current?.messages || currentSession.messages,
+        };
+        saveSession(updatedSession);
+        setCurrentSession(updatedSession);
+        // Commit the pair only after both have been prepared successfully.
+        agentRef.current = runtime.agent;
+        graphRef.current = runtime.graph;
+        if (runtime.contextRestarted) {
+          addMessage(
+            'system',
+            'A fresh conversation context is active for this model. Previous messages and graph records are retained, but are not sent to the new agent.'
+          );
         }
-
-        if (!agentRef.current) throw new Error('Agent not ready');
 
         streamingRef.current = '';
         streamingDoneRef.current = false;
@@ -538,16 +591,21 @@ export function App() {
         // Use Graph system for conversation management
         if (graphRef.current) {
           // Add task node to graph
-          const nodeId = graphRef.current.addTaskNode({
-            name: `Turn-${turnCountRef.current + 1}`,
-            prompt: prompt,
-            stream: true,
-            metadata: {
-              useTools: true, // Enable tool execution
-              attachments: agentAttachments,
-              workingDirectory: workingDir,
-            },
-          });
+          const nodeId =
+            retryTaskRef.current ||
+            graphRef.current.addTaskNode({
+              name: `Turn-${turnCountRef.current + 1}`,
+              model,
+              prompt: prompt,
+              stream: true,
+              metadata: {
+                useTools: true, // Enable tool execution
+                ...(agentAttachments ? { attachments: JSON.stringify(agentAttachments) } : {}),
+                workingDirectory: workingDir,
+              },
+            });
+
+          retryTaskRef.current = null;
 
           // Run graph with streaming
           const result = await graphRef.current.run({
@@ -605,6 +663,7 @@ export function App() {
                 streamingRef.current = '';
                 setStreamingContent('');
                 setIsThinking(false);
+                retryTaskRef.current = nodeId;
                 setPendingMessage(trimmed);
                 setModal('apikey');
                 setMessages((prev) => prev.slice(0, -1)); // Remove the user message
@@ -642,47 +701,8 @@ export function App() {
           } else {
             addMessage('system', `No response from model`);
           }
-        } else {
-          // Fallback to agent.ask() if no graph
-          const result = await agentRef.current.ask(prompt, {
-            stream: true,
-            useTools: true,
-            attachments: agentAttachments,
-            timeout: 300000, // 5 minutes for complex tasks
-            onChunk: (chunk: string) => {
-              if (streamingDoneRef.current || interruptedRef.current) return;
-              streamingRef.current += chunk;
-              const currentContent = streamingRef.current;
-              setIsThinking(false);
-              setStreamingContent(currentContent);
-              setTokenCount(Math.ceil(currentContent.length / 4));
-            },
-          });
-
-          // Check if interrupted
-          if (interruptedRef.current) return;
-
-          // Mark streaming as done
-          streamingDoneRef.current = true;
-
-          // Get response
-          let finalResponse = streamingRef.current;
-          if (!finalResponse && result) {
-            if (typeof result === 'string') {
-              finalResponse = result;
-            } else if (result.response) {
-              finalResponse = result.response;
-            } else if (typeof result === 'object') {
-              finalResponse = JSON.stringify(result, null, 2);
-            }
-          }
-
-          streamingRef.current = '';
-          setStreamingContent('');
-          setIsThinking(false);
-          addMessage('assistant', finalResponse || 'No response received');
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         // If interrupted, don't show error
         if (interruptedRef.current) return;
 
@@ -690,8 +710,8 @@ export function App() {
         streamingRef.current = '';
         setStreamingContent('');
         setIsThinking(false);
-        const msg = e.message || String(e) || 'Unknown error';
-        const stack = e.stack || '';
+        const msg = e instanceof Error ? e.message : String(e);
+        const stack = e instanceof Error ? e.stack || '' : '';
         if (isApiKeyError(msg)) {
           setPendingMessage(trimmed);
           setModal('apikey');
@@ -701,6 +721,7 @@ export function App() {
           addMessage('system', errorDetail);
         }
       } finally {
+        submittingRef.current = false;
         setIsLoading(false);
         setCurrentToolCall(null);
         if (timerRef.current) {
@@ -712,7 +733,11 @@ export function App() {
     [
       modal,
       isInitializing,
-      models,
+      isLoading,
+      catalog,
+      attachments,
+      changeSelection,
+      openSelector,
       model,
       provider,
       addMessage,
@@ -728,6 +753,7 @@ export function App() {
       if (!key.trim()) {
         setModal(null);
         setPendingMessage(null);
+        retryTaskRef.current = null;
         return;
       }
       saveApiKey(provider, key.trim());
@@ -735,19 +761,24 @@ export function App() {
       setApiKeyInput('');
       setModal(null);
 
+      // Recreate and rebind together on the next turn, even after an init error.
+      sdkRef.current?.clearLLMInstances();
+      agentRef.current = null;
       if (pendingMessage) {
-        const msg = pendingMessage;
+        retryMessageRef.current = pendingMessage;
         setPendingMessage(null);
-        // Clear SDK's cached LLM instances so new API key is used
-        if (sdkRef.current?.clearLLMInstances) {
-          sdkRef.current.clearLLMInstances();
-        }
-        agentRef.current = null;
-        setTimeout(() => handleSubmit(msg), 100);
       }
     },
-    [provider, pendingMessage, handleSubmit, addMessage]
+    [provider, pendingMessage, addMessage]
   );
+
+  useEffect(() => {
+    if (!modal && !isLoading && retryMessageRef.current) {
+      const message = retryMessageRef.current;
+      retryMessageRef.current = null;
+      void handleSubmit(message);
+    }
+  }, [modal, isLoading, handleSubmit]);
 
   // Handle interrupt
   const handleInterrupt = useCallback(() => {
@@ -779,51 +810,11 @@ export function App() {
       setMessages(session.messages);
       turnCountRef.current = Math.floor(session.messages.length / 2);
 
-      // Clear old context and load graph for session
-      if (agentRef.current) {
-        await agentRef.current.clearContext?.();
-
-        // Load or create graph for this session
-        if (sdkRef.current?.Graph) {
-          try {
-            let graph = null;
-            if (session.graphId) {
-              graph = await sdkRef.current.Graph.findById(session.graphId, agentRef.current);
-            }
-            if (!graph) {
-              graph = new sdkRef.current.Graph(
-                {
-                  name: session.name || 'Chat Session',
-                  description: 'Astreus CLI chat session',
-                  maxConcurrency: 1,
-                  autoLink: true,
-                  timeout: 300000,
-                },
-                agentRef.current
-              );
-              const graphId = await graph.save();
-              if (graphId) {
-                session.graphId = graphId;
-                saveSession(session);
-              }
-            }
-            graphRef.current = graph;
-          } catch {
-            // Create new graph on error
-            const graph = new sdkRef.current.Graph(
-              {
-                name: session.name || 'Chat Session',
-                description: 'Astreus CLI chat session',
-                maxConcurrency: 1,
-                autoLink: true,
-                timeout: 300000,
-              },
-              agentRef.current
-            );
-            graphRef.current = graph;
-          }
-        }
-      }
+      // Keep the previous agent's native transcript archived. The next turn
+      // restores this session's own agent and graph through prepareRuntime.
+      agentRef.current = null;
+      graphRef.current = null;
+      retryTaskRef.current = null;
     }
     setModal(null);
   }, []);
@@ -839,32 +830,9 @@ export function App() {
       setMessages([]);
       turnCountRef.current = 0;
 
-      // Clear context and create new graph
-      if (agentRef.current) {
-        await agentRef.current.clearContext?.();
-
-        // Create new graph for new session
-        if (sdkRef.current?.Graph) {
-          const graph = new sdkRef.current.Graph(
-            {
-              name: session.name || 'Chat Session',
-              description: 'Astreus CLI chat session',
-              maxConcurrency: 1,
-              autoLink: true,
-              timeout: 300000,
-            },
-            agentRef.current
-          );
-
-          const graphId = await graph.save();
-          if (graphId) {
-            session.graphId = graphId;
-            saveSession(session);
-          }
-
-          graphRef.current = graph;
-        }
-      }
+      agentRef.current = null;
+      graphRef.current = null;
+      retryTaskRef.current = null;
     }
     setModal(null);
   }, []);
@@ -896,6 +864,7 @@ export function App() {
         setModal(null);
         setApiKeyInput('');
         setPendingMessage(null);
+        retryTaskRef.current = null;
       }
       return;
     }
@@ -906,6 +875,7 @@ export function App() {
         setModal(null);
         return;
       }
+      if (options.length === 0) return;
       if (key.upArrow) {
         setSelectIndex((i) => (i > 0 ? i - 1 : options.length - 1));
         return;
@@ -915,17 +885,8 @@ export function App() {
         return;
       }
       if (key.return) {
-        const sel = options[selectIndex];
-        if (modal === 'model') {
-          setModel(sel);
-          addMessage('system', `Model: ${sel}`);
-        } else {
-          const newProvider = sel as ProviderType;
-          setProvider(newProvider);
-          setModel(getDefaultModel(newProvider));
-          addMessage('system', `Provider: ${sel}`);
-        }
-        setModal(null);
+        const selected = options[selectIndex];
+        if (selected) void changeSelection(modal, selected);
         return;
       }
       return;
@@ -968,7 +929,7 @@ export function App() {
     <Box flexDirection="column" padding={1}>
       <Header
         version={VERSION}
-        model={model}
+        model={model || 'not selected'}
         provider={provider}
         cwd={cwd}
         sessionName={currentSession?.name}

@@ -1,6 +1,6 @@
 {
   "name": "@astreus-ai/astreus-cli",
-  "version": "0.5.39",
+  "version": "0.6.0",
   "description": "Interactive terminal interface for Astreus AI agents",
   "author": "Berke (pzzaworks)",
   "license": "MIT",
@@ -20,10 +20,13 @@
     "lint": "eslint src --ext .ts,.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/test.mjs",
+    "prepublishOnly": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@astreus-ai/astreus": "^0.5.38",
+    "@astreus-ai/astreus": "0.6.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.6.1",

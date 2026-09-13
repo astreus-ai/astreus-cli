@@ -7,7 +7,7 @@ import { App } from './app';
 config();
 process.env.LOG_LEVEL = 'silent';
 
-const VERSION = '0.5.38';
+const VERSION = '0.6.0';
 
 const program = new Command();
 program.name('astreus').version(VERSION);

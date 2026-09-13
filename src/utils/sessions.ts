@@ -12,6 +12,7 @@ export interface Session {
   messages: Message[];
   model?: string;
   provider?: string;
+  agentName?: string;
 }
 
 export interface SessionMeta {

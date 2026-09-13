@@ -37,6 +37,12 @@ export function saveApiKey(provider: ProviderType, key: string): void {
 }
 
 export function isApiKeyError(message: string): boolean {
+  // Provider responses expose only a sanitized HTTP status. Do not mistake
+  // permission, quota, or server failures for rejected credentials.
+  const httpStatus = message.match(/\bHTTP\s+(\d{3})\b/i);
+  if (httpStatus) return httpStatus[1] === '401';
+
+  // Missing local configuration has no HTTP response status.
   const lower = message.toLowerCase();
   return lower.includes('api key') || lower.includes('api_key');
 }

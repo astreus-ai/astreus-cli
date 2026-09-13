@@ -100,14 +100,12 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
     } | null = null;
 
     if (boldMatch && boldMatch.index !== undefined) {
-      if (!firstMatch || boldMatch.index < firstMatch.index) {
-        firstMatch = {
-          type: 'bold',
-          index: boldMatch.index,
-          length: boldMatch[0].length,
-          content: boldMatch[1],
-        };
-      }
+      firstMatch = {
+        type: 'bold',
+        index: boldMatch.index,
+        length: boldMatch[0].length,
+        content: boldMatch[1],
+      };
     }
     if (codeMatch && codeMatch.index !== undefined) {
       if (!firstMatch || codeMatch.index < firstMatch.index) {

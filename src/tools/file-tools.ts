@@ -11,6 +11,7 @@ import {
   copyFileSync,
 } from 'fs';
 import { join, dirname, resolve, isAbsolute, basename } from 'path';
+import type { Agent } from '@astreus-ai/astreus';
 
 export interface ToolResult {
   success: boolean;
@@ -291,7 +292,7 @@ export function executeTool(name: string, args: Record<string, string>): ToolRes
 }
 
 // Plugin definition for the Astreus SDK
-export const fileToolsPlugin = {
+export const fileToolsPlugin: Parameters<Agent['registerPlugin']>[0] = {
   name: 'file-tools',
   version: '1.0.0',
   description: 'File system tools for reading, writing, and managing files',
@@ -307,7 +308,7 @@ export const fileToolsPlugin = {
           required: true,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = readFile(params.path as string);
         return { success: result.success, data: result.data, error: result.error };
       },
@@ -329,7 +330,7 @@ export const fileToolsPlugin = {
           required: true,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = writeFile(params.path as string, params.content as string);
         return { success: result.success, data: result.data, error: result.error };
       },
@@ -357,7 +358,7 @@ export const fileToolsPlugin = {
           required: true,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = editFile(
           params.path as string,
           params.old_content as string,
@@ -377,7 +378,7 @@ export const fileToolsPlugin = {
           required: false,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = listDirectory((params.path as string) || '.');
         return { success: result.success, data: result.data, error: result.error };
       },
@@ -394,7 +395,7 @@ export const fileToolsPlugin = {
           required: true,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = createDirectory(params.path as string);
         return { success: result.success, data: result.data, error: result.error };
       },
@@ -410,7 +411,7 @@ export const fileToolsPlugin = {
           required: true,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = deleteFile(params.path as string);
         return { success: result.success, data: result.data, error: result.error };
       },
@@ -432,7 +433,7 @@ export const fileToolsPlugin = {
           required: true,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = moveFile(params.source as string, params.destination as string);
         return { success: result.success, data: result.data, error: result.error };
       },
@@ -454,7 +455,7 @@ export const fileToolsPlugin = {
           required: false,
         },
       },
-      handler: async (params: Record<string, any>) => {
+      handler: async (params: Record<string, unknown>) => {
         const result = searchFiles(params.pattern as string, (params.dir as string) || '.');
         return { success: result.success, data: result.data, error: result.error };
       },

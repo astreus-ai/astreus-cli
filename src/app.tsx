@@ -35,7 +35,7 @@ import {
   createSession,
   type Session,
 } from './utils/sessions';
-import { setWorkingDirectory, getWorkingDirectory } from './tools/file-tools';
+import { setWorkingDirectory, getWorkingDirectory, grantReadAccess } from './tools/file-tools';
 import {
   createAttachment,
   parsePathFromInput,
@@ -135,9 +135,12 @@ export function App() {
           if (prev.some((a) => a.path === att.path)) return prev;
           return [...prev, att];
         });
-        // If it's a folder, set it as the working directory
+        // If it's a folder, set it as the working directory; an attached file
+        // stays readable to the file tools even outside that directory
         if (att.type === 'folder') {
           setWorkingDirectory(att.path);
+        } else {
+          grantReadAccess(att.path);
         }
         setInput(''); // Clear the path from input
       }
@@ -412,6 +415,7 @@ export function App() {
                     `Attached: ${getAttachmentPreview(att)}\nWorking directory set to: ${att.path}`
                   );
                 } else {
+                  grantReadAccess(att.path);
                   addMessage('system', `Attached: ${getAttachmentPreview(att)}`);
                 }
               } else {

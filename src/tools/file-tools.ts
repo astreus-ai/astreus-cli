@@ -5,12 +5,14 @@ import {
   mkdirSync,
   readdirSync,
   statSync,
+  lstatSync,
+  realpathSync,
   unlinkSync,
   rmSync,
   renameSync,
   copyFileSync,
 } from 'fs';
-import { join, dirname, resolve, isAbsolute, basename } from 'path';
+import { join, dirname, resolve, isAbsolute, basename, relative, sep } from 'path';
 import type { Agent } from '@astreus-ai/astreus';
 
 export interface ToolResult {
@@ -37,12 +39,77 @@ export function resetWorkingDirectory(): void {
   currentWorkingDir = process.cwd();
 }
 
-// Resolve path relative to current working directory
-function resolvePath(path: string): string {
-  if (isAbsolute(path)) {
-    return path;
+// Files the user attached explicitly. The agent may read these even when they
+// live outside the working directory; it can never write, move or delete them.
+const readGrants = new Set<string>();
+
+export function grantReadAccess(path: string): void {
+  try {
+    readGrants.add(realpathSync(resolve(path)));
+  } catch {
+    // A path that does not resolve grants nothing
   }
-  return resolve(currentWorkingDir, path);
+}
+
+function pathExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Real location of a path that may not exist yet: resolve symlinks on the
+// deepest existing ancestor and append the parts still to be created. A
+// dangling symlink throws, so a link cannot point a write outside the root.
+function realLocation(path: string): string {
+  const pending: string[] = [];
+  let current = path;
+  while (!pathExists(current)) {
+    const parent = dirname(current);
+    if (parent === current) break;
+    pending.unshift(basename(current));
+    current = parent;
+  }
+  return join(realpathSync(current), ...pending);
+}
+
+function isInside(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/**
+ * Resolve an agent-supplied path and keep it inside the working directory.
+ * The model chooses these paths, so a prompt injected through a file or web
+ * page must not be able to read keys from ~/.ssh or delete outside the
+ * project. Symlinks are resolved before the check, and the working directory
+ * itself can never be deleted or moved.
+ */
+function resolvePath(path: string, access: 'read' | 'write' | 'remove' = 'read'): string {
+  if (typeof path !== 'string' || path.length === 0) {
+    throw new Error('A path is required');
+  }
+  const requested = isAbsolute(path) ? resolve(path) : resolve(currentWorkingDir, path);
+  const root = realpathSync(currentWorkingDir);
+  // Delete and move act on the entry itself (a symlink, not what it points to),
+  // so only its parent directory is resolved.
+  const real =
+    access === 'remove'
+      ? join(realLocation(dirname(requested)), basename(requested))
+      : realLocation(requested);
+
+  if (access === 'read' && readGrants.has(real)) {
+    return real;
+  }
+  if (!isInside(root, real)) {
+    throw new Error(`Access denied: ${path} is outside the working directory ${root}`);
+  }
+  if (access === 'remove' && real === root) {
+    throw new Error('Refusing to delete or move the working directory itself');
+  }
+  return real;
 }
 
 // Read file content
@@ -66,7 +133,7 @@ export function readFile(path: string): ToolResult {
 // Write file content
 export function writeFile(path: string, content: string): ToolResult {
   try {
-    const resolvedPath = resolvePath(path);
+    const resolvedPath = resolvePath(path, 'write');
     const dir = dirname(resolvedPath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -82,7 +149,7 @@ export function writeFile(path: string, content: string): ToolResult {
 // Edit file - replace old content with new
 export function editFile(path: string, oldContent: string, newContent: string): ToolResult {
   try {
-    const resolvedPath = resolvePath(path);
+    const resolvedPath = resolvePath(path, 'write');
     if (!existsSync(resolvedPath)) {
       return { success: false, error: `File not found: ${path}` };
     }
@@ -149,7 +216,7 @@ export function listDirectory(path: string = '.'): ToolResult {
 // Create directory
 export function createDirectory(path: string): ToolResult {
   try {
-    const resolvedPath = resolvePath(path);
+    const resolvedPath = resolvePath(path, 'write');
     if (existsSync(resolvedPath)) {
       return { success: true, data: `Already exists: ${resolvedPath}` };
     }
@@ -163,11 +230,11 @@ export function createDirectory(path: string): ToolResult {
 // Delete file or directory
 export function deleteFile(path: string): ToolResult {
   try {
-    const resolvedPath = resolvePath(path);
-    if (!existsSync(resolvedPath)) {
+    const resolvedPath = resolvePath(path, 'remove');
+    if (!pathExists(resolvedPath)) {
       return { success: true, data: `Already deleted: ${path}` };
     }
-    const stat = statSync(resolvedPath);
+    const stat = lstatSync(resolvedPath);
     if (stat.isDirectory()) {
       rmSync(resolvedPath, { recursive: true, force: true });
       return { success: true, data: `Deleted ${resolvedPath}/` };
@@ -182,11 +249,17 @@ export function deleteFile(path: string): ToolResult {
 
 // Move/rename file or directory
 export function moveFile(source: string, destination: string): ToolResult {
+  let resolvedSource: string;
+  let resolvedDest: string;
   try {
-    const resolvedSource = resolvePath(source);
-    const resolvedDest = resolvePath(destination);
+    resolvedSource = resolvePath(source, 'remove');
+    resolvedDest = resolvePath(destination, 'write');
+  } catch (e: unknown) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
 
-    if (!existsSync(resolvedSource)) {
+  try {
+    if (!pathExists(resolvedSource)) {
       return { success: false, error: `Source not found: ${source}` };
     }
 
@@ -208,9 +281,7 @@ export function moveFile(source: string, destination: string): ToolResult {
   } catch (_e: any) {
     // If rename fails (cross-device), try copy + delete
     try {
-      const resolvedSource = resolvePath(source);
-      const resolvedDest = resolvePath(destination);
-      const stat = statSync(resolvedSource);
+      const stat = lstatSync(resolvedSource);
 
       if (stat.isDirectory()) {
         // For directories, we need recursive copy
@@ -245,7 +316,9 @@ export function searchFiles(pattern: string, dir: string = '.'): ToolResult {
 
         const entryPath = join(currentDir, entry);
         try {
-          const stat = statSync(entryPath);
+          // lstat: a symlinked directory is listed but never descended into,
+          // so the search cannot wander outside the working directory.
+          const stat = lstatSync(entryPath);
 
           if (entry.toLowerCase().includes(pattern.toLowerCase())) {
             const relativePath = entryPath.replace(resolvedDir, '').replace(/^\//, '');

@@ -15,6 +15,7 @@ try {
       config: join(root, 'src/config.ts'),
       runtime: join(root, 'src/runtime.ts'),
       env: join(root, 'src/utils/env.ts'),
+      'file-tools': join(root, 'src/tools/file-tools.ts'),
     },
     format: ['esm'],
     outDir: join(root, 'build/compatibility-tests'),
@@ -26,7 +27,12 @@ try {
   });
   const child = spawn(
     process.execPath,
-    ['--test', join(root, 'tests/config.test.mjs'), join(root, 'tests/runtime.test.mjs')],
+    [
+      '--test',
+      join(root, 'tests/config.test.mjs'),
+      join(root, 'tests/runtime.test.mjs'),
+      join(root, 'tests/file-tools.test.mjs'),
+    ],
     {
       cwd: sandbox,
       stdio: 'inherit',

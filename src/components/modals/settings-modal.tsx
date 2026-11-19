@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
-import { getEnvValue, saveEnvVar } from '../../utils/env';
+import { getEnvValue, saveEnvVar, USER_DB_URL } from '../../utils/env';
 import type { SettingsCategory } from '../../types';
 
 const SETTINGS_CATEGORIES: SettingsCategory[] = [
@@ -50,7 +50,7 @@ const SETTINGS_CATEGORIES: SettingsCategory[] = [
     name: 'Database',
     key: 'database',
     items: [
-      { key: 'DB_URL', label: 'Database URL', value: '', placeholder: 'sqlite://./astreus.db' },
+      { key: 'DB_URL', label: 'Database URL', value: '', placeholder: USER_DB_URL },
       {
         key: 'KNOWLEDGE_DB_URL',
         label: 'Knowledge DB URL',

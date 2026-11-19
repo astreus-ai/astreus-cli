@@ -6,7 +6,7 @@ import {
   readdirSync,
   statSync,
   unlinkSync,
-  rmdirSync,
+  rmSync,
   renameSync,
   copyFileSync,
 } from 'fs';
@@ -90,7 +90,8 @@ export function editFile(path: string, oldContent: string, newContent: string): 
     if (!content.includes(oldContent)) {
       return { success: false, error: `Content not found in file` };
     }
-    content = content.replace(oldContent, newContent);
+    // Function replacement: `$&`, `$$` etc. in the new content must be written literally
+    content = content.replace(oldContent, () => newContent);
     writeFileSync(resolvedPath, content, 'utf-8');
     return { success: true, data: `Edited ${resolvedPath}` };
   } catch (e: any) {
@@ -168,7 +169,7 @@ export function deleteFile(path: string): ToolResult {
     }
     const stat = statSync(resolvedPath);
     if (stat.isDirectory()) {
-      rmdirSync(resolvedPath, { recursive: true });
+      rmSync(resolvedPath, { recursive: true, force: true });
       return { success: true, data: `Deleted ${resolvedPath}/` };
     } else {
       unlinkSync(resolvedPath);

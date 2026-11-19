@@ -63,3 +63,5 @@ product/
 
 # pnpm
 pnpm-lock.yaml
+# Local CLI database (conversations, memories); the CLI now keeps it in ~/.config/astreus
+astreus.db

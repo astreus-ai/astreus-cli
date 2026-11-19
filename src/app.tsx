@@ -27,7 +27,7 @@ import {
 } from './config';
 import { prepareRuntime, type SDK } from './runtime';
 import type { Agent, Graph } from '@astreus-ai/astreus';
-import { saveApiKey, isApiKeyError } from './utils/env';
+import { saveApiKey, isApiKeyError, USER_ENV_PATH } from './utils/env';
 import {
   getOrCreateCurrentSession,
   saveSession,
@@ -757,7 +757,7 @@ export function App() {
         return;
       }
       saveApiKey(provider, key.trim());
-      addMessage('system', 'API key saved to .env');
+      addMessage('system', `API key saved to ${USER_ENV_PATH}`);
       setApiKeyInput('');
       setModal(null);
 

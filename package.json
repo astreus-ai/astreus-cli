@@ -1,6 +1,6 @@
 {
   "name": "@astreus-ai/astreus-cli",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Interactive terminal interface for Astreus AI agents",
   "author": "Berke (pzzaworks)",
   "license": "MIT",
@@ -26,7 +26,7 @@
     "prepublishOnly": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
-    "@astreus-ai/astreus": "0.6.0",
+    "@astreus-ai/astreus": "0.6.1",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.6.1",

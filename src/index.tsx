@@ -18,7 +18,7 @@ if (!process.env.DB_URL) {
 }
 process.env.LOG_LEVEL = 'silent';
 
-const VERSION = '0.6.0';
+const VERSION = '0.6.1';
 
 const program = new Command();
 program.name('astreus').version(VERSION);

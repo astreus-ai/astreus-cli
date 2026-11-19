@@ -45,7 +45,7 @@ import {
 } from './utils/attachments';
 import type { Message, ModalType } from './types';
 
-const VERSION = '0.6.0';
+const VERSION = '0.6.1';
 
 export function App() {
   const { exit } = useApp();
